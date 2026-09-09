@@ -14,10 +14,25 @@ import {
   applyFileChange,
 } from './lib/tools.js';
 import { tavilySearch, formatSearchResultForModel } from './lib/search.js';
+import {
+  getInstanceId,
+  namespacedKey,
+  touchInstance,
+  pruneStaleInstances,
+  migrateLegacyKeys,
+} from './lib/instances.js';
 
 const SETTINGS_KEY = 'localchat:settings';
 const CONVOS_KEY = 'localchat:conversations';
 const ACTIVE_KEY = 'localchat:active';
+const STORAGE_KEYS = [SETTINGS_KEY, CONVOS_KEY, ACTIVE_KEY];
+
+// Each browser tab is its own instance: settings, conversations, and files
+// are namespaced per tab, so tabs never clobber each other.
+const INSTANCE_ID = getInstanceId();
+const ns = (key) => namespacedKey(key, INSTANCE_ID);
+migrateLegacyKeys(localStorage, INSTANCE_ID, STORAGE_KEYS);
+pruneStaleInstances(localStorage, INSTANCE_ID, STORAGE_KEYS);
 const MAX_TOOL_ROUNDS = 5;
 
 const DEFAULT_SETTINGS = {
@@ -44,17 +59,26 @@ function makeMessage(role, content, extra = {}) {
 }
 
 export default function App() {
-  const [settings, setSettings] = useState(() => load(SETTINGS_KEY, DEFAULT_SETTINGS));
-  const [conversations, setConversations] = useState(() => load(CONVOS_KEY, []));
-  const [activeId, setActiveId] = useState(() => load(ACTIVE_KEY, null));
+  const [settings, setSettings] = useState(() => load(ns(SETTINGS_KEY), DEFAULT_SETTINGS));
+  const [conversations, setConversations] = useState(() => load(ns(CONVOS_KEY), []));
+  const [activeId, setActiveId] = useState(() => load(ns(ACTIVE_KEY), null));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState(null);
   const abortRef = useRef(null);
 
-  useEffect(() => localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)), [settings]);
-  useEffect(() => localStorage.setItem(CONVOS_KEY, JSON.stringify(conversations)), [conversations]);
-  useEffect(() => localStorage.setItem(ACTIVE_KEY, JSON.stringify(activeId)), [activeId]);
+  useEffect(() => {
+    localStorage.setItem(ns(SETTINGS_KEY), JSON.stringify(settings));
+    touchInstance(localStorage, INSTANCE_ID);
+  }, [settings]);
+  useEffect(() => {
+    localStorage.setItem(ns(CONVOS_KEY), JSON.stringify(conversations));
+    touchInstance(localStorage, INSTANCE_ID);
+  }, [conversations]);
+  useEffect(() => {
+    localStorage.setItem(ns(ACTIVE_KEY), JSON.stringify(activeId));
+    touchInstance(localStorage, INSTANCE_ID);
+  }, [activeId]);
 
   const active = conversations.find((c) => c.id === activeId) || null;
   const searchActive = Boolean(settings.searchEnabled && settings.tavilyKey);

@@ -33,6 +33,10 @@ Browsers block cross-origin requests unless the server allows them:
 
 Streaming tokens, stop button, markdown/code rendering, multiple saved conversations, rename (double-click), delete, and per-model temperature are all supported.
 
+## Multiple tabs
+
+Each browser tab is a separate instance: its own settings, conversations, and files. You can point different tabs at different providers/models at the same time. A tab keeps its state across reloads; data from closed tabs is cleaned up automatically after 24 hours.
+
 ## Web search (optional)
 
 Enable "Web search" in Settings and paste your **Tavily API key** (free at [tavily.com](https://tavily.com) — 1,000 searches/month). The model then gets a `web_search` tool via native tool calling:
