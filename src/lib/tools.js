@@ -48,7 +48,7 @@ export const FILE_TOOL = {
   function: {
     name: 'file',
     description:
-      'Create a new file or update an existing file. Use this whenever the user asks you to write, draft, generate, or modify a file (code, scripts, documents, markdown, JSON, config, etc.). The content parameter is the complete file; any previous content is fully replaced.',
+      'Create a new file or update an existing file. Use this whenever the user asks you to write, draft, generate, or modify a file (code, scripts, documents, markdown, JSON, config, etc.). Each call writes exactly one file, and many files can coexist in the same conversation. Creating a new file never requires deleting or modifying existing files. The content parameter is the complete file; when updating, any previous content of that file is fully replaced.',
     parameters: {
       type: 'object',
       properties: {
@@ -77,6 +77,8 @@ export const FILE_SYSTEM_NOTE = [
   '- Use action "create" for new files and "update" for existing files. The content field always carries the complete file; the previous content is fully replaced.',
   '- Always send the complete file content in "content". Never send partial content, fragments, or diffs.',
   '- Use simple file names without folders or path separators, e.g. "report.md" or "server.py".',
+  '- A conversation can hold many files at once. Each file is independent: creating a new file does NOT require deleting, renaming, or updating any existing file, and it does not touch them.',
+  '- Give every new file its own distinct filename. If the user asks for another or a new file while files already exist, call the tool again with a new filename — never tell the user to delete an existing file first.',
   '- Files are stored in the user\'s browser and can be viewed and downloaded from the Files panel in the chat.',
   '- After creating or updating files, briefly confirm to the user which files you wrote and what they contain.',
   'If the user does not ask for a file, answer normally without calling the tool.',
