@@ -7,6 +7,7 @@ import {
   toApiMessages,
   buildToolCallEcho,
   buildToolResultMessage,
+  dateTimeNote,
   SEARCH_SYSTEM_NOTE,
   FILE_SYSTEM_NOTE,
   WEB_SEARCH_TOOL,
@@ -199,7 +200,7 @@ export default function App() {
     if (searchActive) activeTools.push(WEB_SEARCH_TOOL);
     if (filesActive) activeTools.push(FILE_TOOL);
 
-    const systemNotes = [];
+    const systemNotes = [dateTimeNote()];
     if (searchActive) systemNotes.push(SEARCH_SYSTEM_NOTE);
     if (filesActive) systemNotes.push(FILE_SYSTEM_NOTE);
     for (const note of systemNotes) history.unshift({ role: 'system', content: note });
@@ -228,7 +229,10 @@ export default function App() {
           // Some models/servers reject the tools parameter; fall back to plain chat.
           if (activeTools.length && err.status === 400 && /tool|function|schema/i.test(err.message)) {
             activeTools.length = 0;
-            while (history[0]?.role === 'system') history = history.slice(1);
+            history = history.filter(
+              (m) =>
+                !(m.role === 'system' && (m.content === SEARCH_SYSTEM_NOTE || m.content === FILE_SYSTEM_NOTE)),
+            );
             continue;
           }
           throw err;

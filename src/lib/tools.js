@@ -195,3 +195,20 @@ export function toApiMessages(messages, provider) {
   }
   return out;
 }
+
+/**
+ * A short system note with the user's current local date and time.
+ * Models have no clock of their own, so this is injected on every request.
+ */
+export function dateTimeNote() {
+  const now = new Date();
+  const date = now.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local time';
+  return `The current date and time on the user's device is ${date}, ${time} (${tz}).`;
+}

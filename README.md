@@ -34,6 +34,10 @@ Browsers block cross-origin requests unless the server allows them:
 
 Streaming tokens, stop button, markdown/code rendering, multiple saved conversations, rename (double-click), delete, and per-model temperature are all supported.
 
+## Current date & time
+
+Models have no clock of their own, so the app prepends a short system note with your device's current date, time, and timezone to every request (e.g. "The current date and time on the user's device is Wednesday, September 9, 2026, 2:35 PM (America/Indiana/Indianapolis)."). That lets the model answer "what day is it?" correctly without needing web search.
+
 ## Multiple tabs
 
 Each browser tab is a separate instance: its own settings, conversations, and files. You can point different tabs at different providers/models at the same time. A tab keeps its state across reloads; data from closed tabs is cleaned up automatically after 24 hours.
