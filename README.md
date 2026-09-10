@@ -1,6 +1,6 @@
 # Local Chat
 
-A ChatGPT-style web UI for chatting with your local models, hosted on **Ollama**, **LM Studio**, or **llama.cpp** (`llama-server`). Works from any browser — the app talks directly to the server you point it at (no backend needed).
+A ChatGPT-style web UI for chatting with your local models, hosted on **Ollama**, **LM Studio**, **llama.cpp** (`llama-server`), or **Unsloth**. Works from any browser — the app talks directly to the server you point it at (no backend needed).
 
 ## Run
 
@@ -13,7 +13,7 @@ npm run dev      # http://localhost:5173
 
 Click the gear icon (or "Configure your local model"):
 
-1. Pick a **provider** — Ollama, LM Studio, or llama.cpp.
+1. Pick a **provider** — Ollama, LM Studio, llama.cpp, or Unsloth.
 2. Enter the **server URL** (defaults: `http://localhost:11434`, `http://localhost:1234`, `http://localhost:8080`).
 3. **Fetch models** to auto-fill the model list, or type any model name yourself.
 4. Save, then chat. Settings and conversations persist in `localStorage`.
@@ -25,11 +25,12 @@ Browsers block cross-origin requests unless the server allows them:
 - **Ollama**: set `OLLAMA_ORIGINS=*` before starting, e.g. `OLLAMA_ORIGINS=* ollama serve` (macOS menu-bar app: add it to launchd/env).
 - **LM Studio**: enable "Allow cross-origin requests" in the server settings (equivalent to `--api-allow-cors`).
 - **llama.cpp**: start with `--api-allow-cors`, e.g. `llama-server -m model.gguf --api-allow-cors`.
+- **Unsloth**: its API is authenticated — load a model (e.g. `unsloth run --model <model>`), which prints an endpoint URL and a one-time `sk-unsloth-…` API key, then paste both into Settings. If the browser blocks the request (CORS), check Unsloth's server options for cross-origin support (it is built on llama-server).
 
 ## How it works
 
 - **Ollama** → native API: `GET /api/tags` for models, `POST /api/chat` with NDJSON streaming.
-- **LM Studio & llama.cpp** → OpenAI-compatible API: `GET /v1/models`, `POST /v1/chat/completions` with SSE streaming.
+- **LM Studio, llama.cpp & Unsloth** → OpenAI-compatible API: `GET /v1/models`, `POST /v1/chat/completions` with SSE streaming (Unsloth sends the API key as a `Bearer` token).
 
 Streaming tokens, stop button, markdown/code rendering, multiple saved conversations, rename (double-click), delete, and per-model temperature are all supported.
 

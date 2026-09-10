@@ -17,6 +17,14 @@ export const PROVIDERS = {
     defaultUrl: 'http://localhost:8080',
     hint: 'Run llama-server with --api-allow-cors so the browser can reach it, e.g. `llama-server -m model.gguf --api-allow-cors`. Tool calling usually also needs `--jinja`.',
   },
+  unsloth: {
+    id: 'unsloth',
+    label: 'Unsloth',
+    defaultUrl: 'http://localhost:8000',
+    requiresApiKey: true,
+    hint:
+      'Load a model with Unsloth, e.g. `unsloth run --model <model>` — the console prints the endpoint URL and a one-time API key. Enter that base URL (usually http://localhost:8000), paste the sk-unsloth-… key, and use Fetch models to get the model ID.',
+  },
 };
 
 export function defaultSettingsFor(providerId) {
@@ -26,11 +34,23 @@ export function defaultSettingsFor(providerId) {
     baseUrl: provider.defaultUrl,
     model: '',
     temperature: 0.7,
+    apiKey: '',
   };
 }
 
 function normalizeUrl(url) {
   return String(url || '').trim().replace(/\/+$/, '');
+}
+
+/**
+ * JSON headers, plus a Bearer token when an API key is configured
+ * (required by Unsloth; ignored by other providers unless one is set).
+ */
+function authHeaders(settings) {
+  const headers = { 'Content-Type': 'application/json' };
+  const key = String(settings.apiKey || '').trim();
+  if (key) headers.Authorization = `Bearer ${key}`;
+  return headers;
 }
 
 function readError(res) {
@@ -94,7 +114,7 @@ export async function listModels(settings, { signal } = {}) {
     return (data.models || []).map((m) => m.name);
   }
 
-  const res = await fetch(`${baseUrl}/v1/models`, { signal });
+  const res = await fetch(`${baseUrl}/v1/models`, { headers: authHeaders(settings), signal });
   if (!res.ok) throw await readError(res);
   const data = await res.json();
   return (data.data || []).map((m) => m.id);
@@ -166,7 +186,7 @@ export async function chatStream(settings, messages, { signal, onDelta, tools = 
 
   const res = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders(settings),
     body: JSON.stringify(body),
     signal,
   });

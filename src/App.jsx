@@ -43,6 +43,7 @@ const DEFAULT_SETTINGS = {
   searchEnabled: false,
   tavilyKey: '',
   filesEnabled: false,
+  apiKey: '',
 };
 
 function load(key, fallback) {

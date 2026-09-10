@@ -35,8 +35,9 @@ export default function SettingsModal({ initial, onSave, onClose }) {
     }
   };
 
-  const canSave = Boolean(draft.baseUrl.trim() && draft.model.trim());
   const searchOn = Boolean(draft.searchEnabled);
+  const needsApiKey = Boolean((PROVIDERS[draft.provider] || {}).requiresApiKey);
+  const canSave = Boolean(draft.baseUrl.trim() && draft.model.trim() && (!needsApiKey || (draft.apiKey || '').trim()));
 
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
@@ -91,6 +92,19 @@ export default function SettingsModal({ initial, onSave, onClose }) {
         </label>
 
         {fetchError && <div className="modal-error">{fetchError}</div>}
+
+        {needsApiKey && (
+          <label className="field">
+            <span>API key</span>
+            <input
+              type="password"
+              value={draft.apiKey || ''}
+              placeholder="sk-unsloth-…"
+              onChange={(event) => setDraft((prev) => ({ ...prev, apiKey: event.target.value }))}
+              spellCheck={false}
+            />
+          </label>
+        )}
 
         <label className="field">
           <span>Temperature: {Number(draft.temperature).toFixed(1)}</span>
@@ -157,7 +171,7 @@ export default function SettingsModal({ initial, onSave, onClose }) {
           <button
             className="primary-btn"
             disabled={!canSave || (searchOn && !(draft.tavilyKey || '').trim())}
-            onClick={() => onSave({ ...draft, baseUrl: draft.baseUrl.trim(), model: draft.model.trim(), tavilyKey: (draft.tavilyKey || '').trim() })}
+            onClick={() => onSave({ ...draft, baseUrl: draft.baseUrl.trim(), model: draft.model.trim(), tavilyKey: (draft.tavilyKey || '').trim(), apiKey: (draft.apiKey || '').trim() })}
           >
             Save
           </button>
