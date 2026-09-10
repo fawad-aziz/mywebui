@@ -435,6 +435,25 @@ body {
   overflow: hidden;
 }
 .tool-card-error { color: #fca5a5; font-size: 13px; }
+.tool-card-result {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.tool-card-preview {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  background: #141414;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 132px;
+  overflow: hidden;
+}
 
 .chat-search-badge,
 .chat-files-badge {

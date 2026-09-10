@@ -164,6 +164,40 @@ export default function SettingsModal({ initial, onSave, onClose }) {
           </div>
         </div>
 
+        <div className="search-section">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={Boolean(draft.calcEnabled)}
+              onChange={(event) => setDraft((prev) => ({ ...prev, calcEnabled: event.target.checked }))}
+            />
+            Enable calculator
+          </label>
+          <div className="provider-hint">
+            The model gets a calculate tool for exact arithmetic — percentages, discounts, exponents, roots, trig —
+            evaluated locally in your browser, so no extra math ever depends on the model's (often wrong) mental math.
+            Requires a tool-capable model — if your model doesn't support tools, the app falls back to plain chat
+            automatically.
+          </div>
+        </div>
+
+        <div className="search-section">
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={Boolean(draft.fetchEnabled)}
+              onChange={(event) => setDraft((prev) => ({ ...prev, fetchEnabled: event.target.checked }))}
+            />
+            Enable page fetch
+          </label>
+          <div className="provider-hint">
+            The model gets a fetch_url tool that reads the full text of a web page by URL (pairs well with web search:
+            search finds pages, fetch reads them). Some sites block cross-origin browser requests (CORS) or serve
+            non-text files like PDFs — those pages can't be read, and the model will say so. Requires a tool-capable
+            model — if your model doesn't support tools, the app falls back to plain chat automatically.
+          </div>
+        </div>
+
         <div className="provider-hint">{PROVIDERS[draft.provider].hint}</div>
 
         <div className="modal-actions">

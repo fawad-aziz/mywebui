@@ -54,9 +54,18 @@ Requires a tool-capable model (llama3.1/3.2/3.3, qwen2.5/3, mistral, gemma3, …
 
 ## File tools (optional)
 
-Enable "File tools" in Settings. The model then gets a `file` tool for creating or updating files:
+Enable "File tools" in Settings. The model then gets a `file` tool for creating, updating, reading, and listing files:
 
 - Ask it to write something (a script, a document, a config) and it calls the tool with the complete file content.
 - Files are stored in your browser, per conversation, and show up in the **Files** panel in the chat header — click a file to preview it, or download / delete it.
 - "Update" replaces the whole file (the model always sends full content, never diffs).
-- Both toggles can be combined: the model can search the web and write files in the same conversation.
+- The model can also `read` a file's current content or `list` all files in the conversation — e.g. to check a file before updating it, so it never has to guess what it already wrote.
+- All toggles can be combined: the model can search the web, write and read files, compute math, and fetch pages in the same conversation.
+
+## Calculator tool (optional)
+
+Enable "Calculator" in Settings. The model gets a `calculate` tool that evaluates arithmetic expressions **exactly in your browser** — arithmetic, percentages, discounts, exponents, roots, trig (radians), logs. No API key, and expressions never leave your machine. The chat shows each computation with its result, and small models stop fumbling with mental math.
+
+## Page fetch (optional)
+
+Enable "Page fetch" in Settings. The model gets a `fetch_url` tool that reads the full text of a web page by URL (HTML is stripped to plain text, very long pages are truncated at 12,000 characters). It pairs well with web search: search finds pages, fetch reads them in full. Caveats: some sites block cross-origin browser requests (CORS) and non-text files (PDFs, images) can't be read — when a page can't be fetched, the model says so and continues with what it has.

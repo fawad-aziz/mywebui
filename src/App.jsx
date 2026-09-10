@@ -10,11 +10,18 @@ import {
   dateTimeNote,
   SEARCH_SYSTEM_NOTE,
   FILE_SYSTEM_NOTE,
+  CALC_SYSTEM_NOTE,
+  FETCH_SYSTEM_NOTE,
+  TOOL_NOTES,
   WEB_SEARCH_TOOL,
   FILE_TOOL,
+  CALCULATE_TOOL,
+  FETCH_URL_TOOL,
   applyFileChange,
 } from './lib/tools.js';
 import { tavilySearch, formatSearchResultForModel } from './lib/search.js';
+import { evaluateExpression } from './lib/calculate.js';
+import { fetchPageText, formatPageForModel } from './lib/fetchPage.js';
 import {
   getInstanceId,
   namespacedKey,
@@ -44,6 +51,8 @@ const DEFAULT_SETTINGS = {
   searchEnabled: false,
   tavilyKey: '',
   filesEnabled: false,
+  calcEnabled: false,
+  fetchEnabled: false,
   apiKey: '',
 };
 
@@ -85,6 +94,8 @@ export default function App() {
   const active = conversations.find((c) => c.id === activeId) || null;
   const searchActive = Boolean(settings.searchEnabled && settings.tavilyKey);
   const filesActive = Boolean(settings.filesEnabled);
+  const calcActive = Boolean(settings.calcEnabled);
+  const fetchActive = Boolean(settings.fetchEnabled);
 
   const newChat = () => {
     setError(null);
@@ -192,17 +203,21 @@ export default function App() {
     }
 
     // Build the API message history from the conversation so far (plus this user turn),
-    // and collect the tools (web search, file creation) enabled in Settings.
+    // and collect the tools (web search, file tools, calculator, page fetch) enabled in Settings.
     let history = toApiMessages(active ? active.messages : [], settings.provider);
     history.push({ role: 'user', content: trimmed });
 
     const activeTools = [];
     if (searchActive) activeTools.push(WEB_SEARCH_TOOL);
     if (filesActive) activeTools.push(FILE_TOOL);
+    if (calcActive) activeTools.push(CALCULATE_TOOL);
+    if (fetchActive) activeTools.push(FETCH_URL_TOOL);
 
     const systemNotes = [dateTimeNote()];
     if (searchActive) systemNotes.push(SEARCH_SYSTEM_NOTE);
     if (filesActive) systemNotes.push(FILE_SYSTEM_NOTE);
+    if (calcActive) systemNotes.push(CALC_SYSTEM_NOTE);
+    if (fetchActive) systemNotes.push(FETCH_SYSTEM_NOTE);
     for (const note of systemNotes) history.unshift({ role: 'system', content: note });
 
     let files = (active && active.files) || {};
@@ -230,8 +245,7 @@ export default function App() {
           if (activeTools.length && err.status === 400 && /tool|function|schema/i.test(err.message)) {
             activeTools.length = 0;
             history = history.filter(
-              (m) =>
-                !(m.role === 'system' && (m.content === SEARCH_SYSTEM_NOTE || m.content === FILE_SYSTEM_NOTE)),
+              (m) => !(m.role === 'system' && TOOL_NOTES.includes(m.content)),
             );
             continue;
           }
@@ -274,8 +288,68 @@ export default function App() {
             continue;
           }
 
+          if (call.name === 'calculate') {
+            const expression = String(call.arguments?.expression || '').trim();
+            let error = null;
+            let resultText;
+            try {
+              const { formatted } = evaluateExpression(expression);
+              resultText = `Result: ${formatted}`;
+            } catch (err) {
+              error = err.message;
+              resultText = `Calculation failed: ${error}`;
+            }
+            history.push(buildToolResultMessage(settings.provider, toolCallId, call.name, resultText));
+            appendMessage(convId, {
+              id: crypto.randomUUID(),
+              role: 'tool',
+              name: 'calculate',
+              toolCallId,
+              resultText,
+              expression,
+              error,
+            });
+            continue;
+          }
+
+          if (call.name === 'fetch_url') {
+            const url = String(call.arguments?.url || '').trim();
+            try {
+              const page = await fetchPageText(url, { signal: controller.signal });
+              const resultText = formatPageForModel(page);
+              history.push(buildToolResultMessage(settings.provider, toolCallId, call.name, resultText));
+              appendMessage(convId, {
+                id: crypto.randomUUID(),
+                role: 'tool',
+                name: 'fetch_url',
+                toolCallId,
+                resultText,
+                url: page.url,
+                title: page.title,
+                chars: page.totalChars,
+                truncated: page.truncated,
+              });
+            } catch (err) {
+              if (controller.signal.aborted) throw err;
+              const message = err.message || 'Page fetch failed';
+              const resultText = `Page fetch failed: ${message}`;
+              history.push(buildToolResultMessage(settings.provider, toolCallId, call.name, resultText));
+              appendMessage(convId, {
+                id: crypto.randomUUID(),
+                role: 'tool',
+                name: 'fetch_url',
+                toolCallId,
+                resultText,
+                url,
+                error: message,
+              });
+            }
+            continue;
+          }
+
           if (call.name !== 'web_search') {
-            const message = `Unknown tool "${call.name}". Available tools: web_search, file.`;
+            const available = activeTools.map((tool) => tool.function.name).join(', ') || 'none';
+            const message = `Unknown tool "${call.name}". Available tools: ${available}.`;
             history.push(buildToolResultMessage(settings.provider, toolCallId, call.name, message));
             appendMessage(convId, {
               id: crypto.randomUUID(),

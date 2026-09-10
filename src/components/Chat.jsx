@@ -34,12 +34,40 @@ function ToolCallPill({ message, isPending }) {
   const first = message.toolCalls?.[0];
   if (first?.name === 'file') {
     const filename = first.arguments?.filename || 'a file';
-    const verb = isPending ? 'Writing' : first.arguments?.action === 'update' ? 'Updated' : 'Created';
+    const action = String(first.arguments?.action || 'create').toLowerCase();
+    const verb = isPending
+      ? { create: 'Creating', update: 'Updating', read: 'Reading', list: 'Listing' }[action] || 'Working on'
+      : { create: 'Created', update: 'Updated', read: 'Read', list: 'Listed' }[action] || 'Updated';
+    const label = action === 'list' ? `${verb} files` : `${verb} file “${filename}”`;
     return (
       <div className="msg msg-tool">
         <div className="tool-pill">
           <span className={`tool-icon${isPending ? ' spin' : ''}`}>📄</span>
-          <span>{verb} file “{filename}”</span>
+          <span>{label}</span>
+        </div>
+      </div>
+    );
+  }
+  if (first?.name === 'calculate') {
+    const expression = String(first.arguments?.expression || 'an expression');
+    return (
+      <div className="msg msg-tool">
+        <div className="tool-pill">
+          <span className={`tool-icon${isPending ? ' spin' : ''}`}>🧮</span>
+          <span>
+            {isPending ? 'Calculating' : 'Calculated'} “{expression.length > 60 ? `${expression.slice(0, 60)}…` : expression}”
+          </span>
+        </div>
+      </div>
+    );
+  }
+  if (first?.name === 'fetch_url') {
+    const url = String(first.arguments?.url || 'a page');
+    return (
+      <div className="msg msg-tool">
+        <div className="tool-pill">
+          <span className={`tool-icon${isPending ? ' spin' : ''}`}>🌐</span>
+          <span>{isPending ? 'Fetching' : 'Fetched'} page {domainOf(url)}</span>
         </div>
       </div>
     );
@@ -56,19 +84,97 @@ function ToolCallPill({ message, isPending }) {
 }
 
 function FileToolCard({ message }) {
+  const action = message.action || 'create';
+  const heading = message.error
+    ? 'File tool failed'
+    : action === 'update'
+      ? 'Updated file'
+      : action === 'read'
+        ? 'Read file'
+        : action === 'list'
+          ? 'Listed files'
+          : 'Created file';
   return (
     <div className="msg msg-tool">
       <div className={`tool-card${message.error ? ' error' : ''}`}>
         <div className="tool-card-head">
-          <span>📄 {message.error ? 'File tool failed' : message.action === 'update' ? 'Updated file' : 'Created file'}</span>
+          <span>📄 {heading}</span>
           {message.filename && <span className="tool-card-query">{message.filename}</span>}
         </div>
         {message.error ? (
           <div className="tool-card-error">{message.error}</div>
         ) : (
+          action === 'list' ? (
+            <div className="file-card-meta">
+              <span>{message.resultText?.startsWith('There are no files') ? 'No files yet' : `${message.resultText?.split('\n').length - 1} files in this chat`}</span>
+              <span>Open the Files panel to view them</span>
+            </div>
+          ) : action === 'read' ? (
+            <>
+              <div className="file-card-meta">
+                <span>{message.lines} line{message.lines === 1 ? '' : 's'} · {Number(message.chars || 0).toLocaleString()} characters</span>
+                <span>Click the file in the Files panel to view it</span>
+              </div>
+              <ReadPreview message={message} />
+            </>
+          ) : (
+            <div className="file-card-meta">
+              <span>{message.lines} line{message.lines === 1 ? '' : 's'} · {Number(message.chars).toLocaleString()} characters</span>
+              <span>Saved to the Files panel</span>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReadPreview({ message }) {
+  const parts = (message.resultText || '').split('\n\n');
+  const full = parts.length >= 2 ? parts.slice(2).join('\n\n') : '';
+  if (!full) return null;
+  const clipped = full.length > 200;
+  return <pre className="tool-card-preview">{clipped ? `${full.slice(0, 200)}…` : full}</pre>;
+}
+
+function CalcToolCard({ message }) {
+  return (
+    <div className="msg msg-tool">
+      <div className={`tool-card${message.error ? ' error' : ''}`}>
+        <div className="tool-card-head">
+          <span>🧮 {message.error ? 'Calculation failed' : 'Calculation'}</span>
+          {message.expression && !message.error && <span className="tool-card-query">{message.expression}</span>}
+        </div>
+        {message.error ? (
+          <div className="tool-card-error">{message.error}</div>
+        ) : (
+          <div className="tool-card-result">{message.resultText}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FetchToolCard({ message }) {
+  return (
+    <div className="msg msg-tool">
+      <div className={`tool-card${message.error ? ' error' : ''}`}>
+        <div className="tool-card-head">
+          <span>🌐 {message.error ? 'Page fetch failed' : 'Fetched page'}</span>
+          {message.url && !message.error && <span className="tool-card-query">{domainOf(message.url)}</span>}
+        </div>
+        {message.error ? (
+          <div className="tool-card-error">{message.error}</div>
+        ) : (
           <div className="file-card-meta">
-            <span>{message.lines} line{message.lines === 1 ? '' : 's'} · {Number(message.chars).toLocaleString()} characters</span>
-            <span>Saved to the Files panel</span>
+            <span>
+              {Number(message.chars || 0).toLocaleString()} characters{message.truncated ? ' (truncated)' : ''}
+            </span>
+            {message.url && (
+              <a href={message.url} target="_blank" rel="noreferrer">
+                open ↗
+              </a>
+            )}
           </div>
         )}
       </div>
@@ -78,6 +184,8 @@ function FileToolCard({ message }) {
 
 function ToolResultsCard({ message }) {
   if (message.name === 'file') return <FileToolCard message={message} />;
+  if (message.name === 'calculate') return <CalcToolCard message={message} />;
+  if (message.name === 'fetch_url') return <FetchToolCard message={message} />;
   const results = message.results || [];
   return (
     <div className="msg msg-tool">
@@ -193,6 +301,8 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
   const configured = Boolean(settings.model);
   const searchOn = Boolean(settings.searchEnabled && settings.tavilyKey);
   const filesOn = Boolean(settings.filesEnabled);
+  const calcOn = Boolean(settings.calcEnabled);
+  const fetchOn = Boolean(settings.fetchEnabled);
   const files = (conversation && conversation.files) || {};
   const fileNames = Object.keys(files);
 
@@ -216,6 +326,8 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
           {settings.model && <span className="chat-model"> · {settings.model}</span>}
           {searchOn && <span className="chat-search-badge">🔍 web search</span>}
           {filesOn && <span className="chat-files-badge">📄 file tools</span>}
+          {calcOn && <span className="chat-files-badge">🧮 calculator</span>}
+          {fetchOn && <span className="chat-files-badge">🌐 page fetch</span>}
         </div>
         {fileNames.length > 0 && (
           <div className="files-wrap">
@@ -331,10 +443,12 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
           )}
         </div>
         <div className="composer-note">
-          {searchOn || filesOn
+          {searchOn || filesOn || calcOn || fetchOn
             ? [
                 searchOn && 'Web search enabled (Tavily) — the model decides when to search. Verify important information.',
                 filesOn && 'File tools enabled — the model can create and update files; open the Files panel to view or download them.',
+                calcOn && 'Calculator enabled — the model computes exact math with a calculate tool.',
+                fetchOn && 'Page fetch enabled — the model can read web pages by URL.',
               ]
                 .filter(Boolean)
                 .join(' ')
