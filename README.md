@@ -69,3 +69,12 @@ Enable "Calculator" in Settings. The model gets a `calculate` tool that evaluate
 ## Page fetch (optional)
 
 Enable "Page fetch" in Settings. The model gets a `fetch_url` tool that reads the full text of a web page by URL (HTML is stripped to plain text, very long pages are truncated at 12,000 characters). It pairs well with web search: search finds pages, fetch reads them in full. Caveats: some sites block cross-origin browser requests (CORS) and non-text files (PDFs, images) can't be read — when a page can't be fetched, the model says so and continues with what it has.
+
+## Attaching files to a message
+
+Click the 📎 button in the composer to attach one or more files to your message. The file contents are included in the prompt sent to the model, so you can ask it to explain, review, refactor, or summarize them.
+
+- Basic text formats only, for now: `.txt .md .csv .tsv .json .js .ts .py .rb .go .rs .java .c .cpp .css .html .xml .yml .yaml .toml .ini .sh .sql .log` and similar code/config files. Binary files (images, PDFs, etc.) are rejected.
+- Up to 5 files per message, 200 KB each. Files are sent to your model server with the message — nothing is uploaded anywhere else.
+- Attached files show as chips under your message; click one to re-read its content. The attachment stays in the conversation, so follow-up questions in the same chat still have the file as context.
+- You can send a file with no text at all — the file alone is the prompt.

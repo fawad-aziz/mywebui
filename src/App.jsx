@@ -18,6 +18,7 @@ import {
   CALCULATE_TOOL,
   FETCH_URL_TOOL,
   applyFileChange,
+  buildUserContent,
 } from './lib/tools.js';
 import { tavilySearch, formatSearchResultForModel } from './lib/search.js';
 import { evaluateExpression } from './lib/calculate.js';
@@ -167,9 +168,9 @@ export default function App() {
 
   const stopStreaming = () => abortRef.current?.abort();
 
-  const sendMessage = async (text) => {
+  const sendMessage = async (text, attachments = []) => {
     const trimmed = text.trim();
-    if (!trimmed || isStreaming) return;
+    if ((!trimmed && attachments.length === 0) || isStreaming) return;
 
     if (!settings.baseUrl || !settings.model) {
       setError('Set your provider, server URL, and model in Settings before chatting.');
@@ -178,7 +179,7 @@ export default function App() {
     }
 
     setError(null);
-    const userMsg = makeMessage('user', trimmed);
+    const userMsg = makeMessage('user', trimmed, attachments.length ? { attachments } : undefined);
     const assistantMsg = makeMessage('assistant', '', {
       provider: settings.provider,
       model: settings.model,
@@ -194,7 +195,8 @@ export default function App() {
       );
     } else {
       convId = crypto.randomUUID();
-      const title = trimmed.length > 48 ? `${trimmed.slice(0, 48)}…` : trimmed;
+      const base = trimmed || attachments[0].name;
+      const title = base.length > 48 ? `${base.slice(0, 48)}…` : base;
       setConversations((prev) => [
         { id: convId, title, createdAt: Date.now(), updatedAt: Date.now(), messages: [userMsg, assistantMsg] },
         ...prev,
@@ -205,7 +207,7 @@ export default function App() {
     // Build the API message history from the conversation so far (plus this user turn),
     // and collect the tools (web search, file tools, calculator, page fetch) enabled in Settings.
     let history = toApiMessages(active ? active.messages : [], settings.provider);
-    history.push({ role: 'user', content: trimmed });
+    history.push({ role: 'user', content: buildUserContent(userMsg) });
 
     const activeTools = [];
     if (searchActive) activeTools.push(WEB_SEARCH_TOOL);

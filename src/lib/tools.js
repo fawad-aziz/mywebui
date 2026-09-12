@@ -273,6 +273,28 @@ export function buildToolResultMessage(provider, toolCallId, name, content) {
 }
 
 /**
+ * Expand a user message (optionally with attached files) into the content
+ * string that gets sent to the model.
+ */
+export function buildUserContent(message) {
+  const content = message?.content || '';
+  const attachments = message?.attachments || [];
+  if (attachments.length === 0) return content;
+  const parts = [];
+  if (content) parts.push(content);
+  parts.push('Attached file(s):');
+  for (const file of attachments) {
+    const lines = file.content.split('\n').length;
+    parts.push(
+      `\n=== Attached file: ${file.name} (${lines} line${lines === 1 ? '' : 's'}, ${file.content.length.toLocaleString()} characters) ===`,
+      file.content,
+      `=== End of attached file: ${file.name} ===`,
+    );
+  }
+  return parts.join('\n');
+}
+
+/**
  * Convert persisted conversation messages into the API message array,
  * including tool-call / tool-result entries in provider-native format.
  */
@@ -280,7 +302,7 @@ export function toApiMessages(messages, provider) {
   const out = [];
   for (const m of messages) {
     if (m.role === 'user') {
-      out.push({ role: 'user', content: m.content });
+      out.push({ role: 'user', content: buildUserContent(m) });
     } else if (m.role === 'assistant') {
       out.push({ role: 'assistant', content: m.content });
     } else if (m.role === 'tool-call') {

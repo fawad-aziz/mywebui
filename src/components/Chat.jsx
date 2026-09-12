@@ -18,6 +18,19 @@ function domainOf(url) {
   }
 }
 
+// Basic text formats the composer accepts as attachments (prompt context).
+const ATTACH_ACCEPT =
+  '.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.js,.mjs,.cjs,.ts,.jsx,.tsx,.py,.rb,.go,.rs,.java,.c,.h,.cpp,.cs,.css,.html,.htm,.xml,.yml,.yaml,.toml,.ini,.cfg,.conf,.sh,.bash,.zsh,.ps1,.sql,.log';
+const ATTACH_EXT_RE = /\.(txt|md|markdown|csv|tsv|json|jsonl|js|mjs|cjs|ts|jsx|tsx|py|rb|go|rs|java|c|h|cpp|cs|css|html?|xml|yml|yaml|toml|ini|cfg|conf|sh|bash|zsh|ps1|sql|log)$/i;
+const MAX_ATTACHMENT_CHARS = 200000;
+const MAX_ATTACHMENTS = 5;
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
 function downloadFile(filename, content) {
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -218,13 +231,14 @@ function ToolResultsCard({ message }) {
   );
 }
 
-function MessageBubble({ message, isStreamingTail }) {
+function MessageBubble({ message, isStreamingTail, onPreviewAttachment }) {
   if (message.role === 'tool-call' || message.role === 'tool') return null; // handled by parent
 
   const isUser = message.role === 'user';
   const label = isUser ? null : PROVIDERS[message.provider]?.label || message.provider || 'model';
 
   if (!isUser && !message.content && !isStreamingTail) return null;
+  const attachments = isUser ? message.attachments || [] : [];
 
   return (
     <div className={`msg ${isUser ? 'msg-user' : 'msg-assistant'}`}>
@@ -239,7 +253,18 @@ function MessageBubble({ message, isStreamingTail }) {
       <div className="msg-body">
         {!isUser && <div className="msg-label">{label}{message.model ? ` · ${message.model}` : ''}</div>}
         {isUser ? (
-          <div className="msg-text">{message.content}</div>
+          <>
+            {message.content && <div className="msg-text">{message.content}</div>}
+            {attachments.length > 0 && (
+              <div className="msg-attach-list">
+                {attachments.map((file) => (
+                  <button key={file.id} className="msg-attach" onClick={() => onPreviewAttachment?.(file)} title="View attached file">
+                    📎 {file.name} <span className="attach-chip-size">{formatSize(file.content.length)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="markdown">
             {message.content ? (
@@ -263,6 +288,9 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
   const stickToBottom = useRef(true);
   const [filesOpen, setFilesOpen] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [attachError, setAttachError] = useState(null);
+  const fileInputRef = useRef(null);
   const lastConvIdRef = useRef(conversation?.id);
 
   useEffect(() => {
@@ -284,10 +312,44 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
   };
 
   const submit = () => {
-    if (!text.trim() || isStreaming) return;
+    if ((!text.trim() && attachments.length === 0) || isStreaming) return;
     stickToBottom.current = true;
-    onSend(text);
+    onSend(text, attachments);
     setText('');
+    setAttachments([]);
+    setAttachError(null);
+  };
+
+  const handleFiles = async (fileList) => {
+    setAttachError(null);
+    if (!fileList || fileList.length === 0) return;
+    const next = [...attachments];
+    for (const file of Array.from(fileList)) {
+      if (next.length >= MAX_ATTACHMENTS) {
+        setAttachError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`);
+        break;
+      }
+      if (!ATTACH_EXT_RE.test(file.name)) {
+        setAttachError(`"${file.name}" isn't a supported text format. Try .txt, .md, .csv, .json, or a code file.`);
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_CHARS) {
+        setAttachError(`"${file.name}" is too large (max ${MAX_ATTACHMENT_CHARS / 1024} KB per file).`);
+        continue;
+      }
+      try {
+        const content = await file.text();
+        if (content.slice(0, 8000).includes('\u0000')) {
+          setAttachError(`"${file.name}" looks like a binary file, so it can't be attached.`);
+          continue;
+        }
+        next.push({ id: crypto.randomUUID(), name: file.name, size: file.size, content });
+      } catch {
+        setAttachError(`Could not read "${file.name}".`);
+      }
+    }
+    setAttachments(next);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const onKey = (event) => {
@@ -315,7 +377,14 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
       return <ToolResultsCard key={message.id} message={message} />;
     }
     const isTail = index === messages.length - 1 && message.role === 'assistant';
-    return <MessageBubble key={message.id} message={message} isStreamingTail={isStreaming && isTail} />;
+    return (
+      <MessageBubble
+        key={message.id}
+        message={message}
+        isStreamingTail={isStreaming && isTail}
+        onPreviewAttachment={(file) => setPreview({ name: file.name, content: file.content })}
+      />
+    );
   };
 
   return (
@@ -344,7 +413,7 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
                 <ul className="files-list">
                   {fileNames.map((name) => (
                     <li key={name} className="file-row">
-                      <button className="file-name" onClick={() => setPreview(name)} title="Preview">
+                      <button className="file-name" onClick={() => setPreview({ name, content: files[name].content })} title="Preview">
                         {name}
                       </button>
                       <span className="file-meta">{files[name].content.length.toLocaleString()} chars</span>
@@ -401,9 +470,9 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
         <div className="modal-backdrop" onMouseDown={() => setPreview(null)}>
           <div className="modal file-preview-modal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="file-preview-head">
-              <h2 title={preview}>{preview}</h2>
+              <h2 title={preview.name}>{preview.name}</h2>
               <div className="file-preview-actions">
-                <button className="secondary-btn" onClick={() => downloadFile(preview, files[preview]?.content || '')}>
+                <button className="secondary-btn" onClick={() => downloadFile(preview.name, preview.content)}>
                   Download
                 </button>
                 <button className="secondary-btn" onClick={() => setPreview(null)}>
@@ -411,13 +480,45 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
                 </button>
               </div>
             </div>
-            <pre className="file-preview">{files[preview]?.content || ''}</pre>
+            <pre className="file-preview">{preview.content}</pre>
           </div>
         </div>
       )}
 
       <div className="composer-wrap">
+        {attachments.length > 0 && (
+          <div className="attach-chips">
+            {attachments.map((file) => (
+              <span key={file.id} className="attach-chip">
+                📎 {file.name} <span className="attach-chip-size">{formatSize(file.size)}</span>
+                <button
+                  className="attach-chip-remove"
+                  onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== file.id))}
+                  title={`Remove ${file.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="composer">
+          <button
+            className="attach-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach a text file — its content is included in the prompt"
+            aria-label="Attach file"
+          >
+            📎
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ATTACH_ACCEPT}
+            style={{ display: 'none' }}
+            onChange={(event) => handleFiles(event.target.files)}
+          />
           <textarea
             rows={1}
             value={text}
@@ -435,15 +536,16 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1.5" /></svg>
             </button>
           ) : (
-            <button className="send-btn" onClick={submit} disabled={!text.trim()} title="Send" aria-label="Send">
+            <button className="send-btn" onClick={submit} disabled={!text.trim() && attachments.length === 0} title="Send" aria-label="Send">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 19V5M5 12l7-7 7 7" />
               </svg>
             </button>
           )}
         </div>
-        <div className="composer-note">
-          {searchOn || filesOn || calcOn || fetchOn
+        <div className={`composer-note${attachError ? ' error-note' : ''}`}>
+          {attachError ||
+          (searchOn || filesOn || calcOn || fetchOn
             ? [
                 searchOn && 'Web search enabled (Tavily) — the model decides when to search. Verify important information.',
                 filesOn && 'File tools enabled — the model can create and update files; open the Files panel to view or download them.',
@@ -452,7 +554,7 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
               ]
                 .filter(Boolean)
                 .join(' ')
-            : 'Responses are generated locally by your model. Verify important information.'}
+             : 'Responses are generated locally by your model. Verify important information.')}
         </div>
       </div>
     </main>

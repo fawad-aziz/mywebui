@@ -284,6 +284,73 @@ body {
 .stop-btn:hover { background: #525252; }
 
 .composer-note { text-align: center; font-size: 12px; color: var(--text-dim); margin-top: 8px; }
+.composer-note.error-note { color: #fca5a5; }
+
+.attach-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  background: none;
+  border: none;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+  padding: 4px;
+}
+.attach-btn:hover { opacity: 1; }
+
+.attach-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 828px;
+  margin: 0 auto 8px;
+}
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  font-size: 12.5px;
+}
+.attach-chip-size { color: var(--text-dim); font-size: 11.5px; }
+.attach-chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 50%;
+}
+.attach-chip-remove:hover { color: var(--danger); background: rgba(255, 255, 255, 0.06); }
+
+.msg-attach-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.msg-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.msg-attach:hover { background: rgba(255, 255, 255, 0.14); }
+.msg-attach .attach-chip-size { color: rgba(255, 255, 255, 0.55); }
 
 /* ---------- Settings modal ---------- */
 .modal-backdrop {
