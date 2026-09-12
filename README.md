@@ -2,6 +2,8 @@
 
 A ChatGPT-style web UI for chatting with your local models, hosted on **Ollama**, **LM Studio**, **llama.cpp** (`llama-server`), or **Unsloth**. Works from any browser — the app talks directly to the server you point it at (no backend needed).
 
+Optional tools you can switch on in Settings: **web search** (Tavily), **file tools** (create/update/read/list files per conversation), **calculator** (exact math in your browser), **page fetch** (read any web page by URL) — plus **file attachments** on every message.
+
 ## Run
 
 ```bash
@@ -14,7 +16,7 @@ npm run dev      # http://localhost:5173
 Click the gear icon (or "Configure your local model"):
 
 1. Pick a **provider** — Ollama, LM Studio, llama.cpp, or Unsloth.
-2. Enter the **server URL** (defaults: `http://localhost:11434`, `http://localhost:1234`, `http://localhost:8080`).
+2. Enter the **server URL** (defaults: `http://localhost:11434` Ollama, `http://localhost:1234` LM Studio, `http://localhost:8080` llama.cpp, `http://localhost:8000` Unsloth). For Unsloth, also paste the `sk-unsloth-…` API key.
 3. **Fetch models** to auto-fill the model list, or type any model name yourself.
 4. Save, then chat. Settings and conversations persist in `localStorage`.
 
@@ -32,7 +34,7 @@ Browsers block cross-origin requests unless the server allows them:
 - **Ollama** → native API: `GET /api/tags` for models, `POST /api/chat` with NDJSON streaming.
 - **LM Studio, llama.cpp & Unsloth** → OpenAI-compatible API: `GET /v1/models`, `POST /v1/chat/completions` with SSE streaming (Unsloth sends the API key as a `Bearer` token).
 
-Streaming tokens, stop button, markdown/code rendering, multiple saved conversations, rename (double-click), delete, and per-model temperature are all supported.
+Streaming tokens, stop button, markdown/code rendering, multiple saved conversations, rename (double-click), delete, per-model temperature, optional tools (web search, file tools, calculator, page fetch), and file attachments are all supported.
 
 ## Current date & time
 
