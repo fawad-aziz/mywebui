@@ -148,7 +148,7 @@ export const FETCH_SYSTEM_NOTE = [
   'Rules for the fetch_url tool:',
   '- Use it when you need the full content of a specific page: a web_search result you want to read in depth, or a URL the user shared or mentioned.',
   '- It returns the page\'s readable text (navigation, scripts, and styling are removed). Very long pages are truncated.',
-  '- If a fetch fails (blocked by the site\'s CORS policy, network error, non-text file type such as PDF), briefly say the page could not be read and continue with the information you already have. Do not retry the same URL more than once.',
+  '- If a fetch fails (blocked by the site\'s CORS policy, network error, or a scanned/image-only PDF with no selectable text), briefly say the page could not be read and continue with the information you already have. Do not retry the same URL more than once.',
   '- Cite the URL when you use a page\'s content in your answer.',
 ].join('\n');
 

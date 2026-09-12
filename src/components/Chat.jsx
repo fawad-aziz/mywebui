@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { PROVIDERS } from '../lib/providers.js';
+import { extractPdfText } from '../lib/pdf.js';
 
 const SUGGESTIONS = [
   'Explain how transformers work',
@@ -18,12 +19,13 @@ function domainOf(url) {
   }
 }
 
-// Basic text formats the composer accepts as attachments (prompt context).
+// Basic text formats and PDF the composer accepts as attachments (prompt context).
 const ATTACH_ACCEPT =
-  '.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.js,.mjs,.cjs,.ts,.jsx,.tsx,.py,.rb,.go,.rs,.java,.c,.h,.cpp,.cs,.css,.html,.htm,.xml,.yml,.yaml,.toml,.ini,.cfg,.conf,.sh,.bash,.zsh,.ps1,.sql,.log';
-const ATTACH_EXT_RE = /\.(txt|md|markdown|csv|tsv|json|jsonl|js|mjs|cjs|ts|jsx|tsx|py|rb|go|rs|java|c|h|cpp|cs|css|html?|xml|yml|yaml|toml|ini|cfg|conf|sh|bash|zsh|ps1|sql|log)$/i;
+  '.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.js,.mjs,.cjs,.ts,.jsx,.tsx,.py,.rb,.go,.rs,.java,.c,.h,.cpp,.cs,.css,.html,.htm,.xml,.yml,.yaml,.toml,.ini,.cfg,.conf,.sh,.bash,.zsh,.ps1,.sql,.log,.pdf';
+const ATTACH_EXT_RE = /\.(txt|md|markdown|csv|tsv|json|jsonl|js|mjs|cjs|ts|jsx|tsx|py|rb|go|rs|java|c|h|cpp|cs|css|html?|xml|yml|yaml|toml|ini|cfg|conf|sh|bash|zsh|ps1|sql|log|pdf)$/i;
 const MAX_ATTACHMENT_CHARS = 200000;
 const MAX_ATTACHMENTS = 5;
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -259,7 +261,9 @@ function MessageBubble({ message, isStreamingTail, onPreviewAttachment }) {
               <div className="msg-attach-list">
                 {attachments.map((file) => (
                   <button key={file.id} className="msg-attach" onClick={() => onPreviewAttachment?.(file)} title="View attached file">
-                    📎 {file.name} <span className="attach-chip-size">{formatSize(file.content.length)}</span>
+                    📎 {file.name}
+                    {file.kind === 'pdf' && <span className="attach-chip-kind">PDF</span>}
+                    <span className="attach-chip-size">{formatSize(file.kind === 'pdf' ? file.size : file.content.length)}</span>
                   </button>
                 ))}
               </div>
@@ -290,6 +294,7 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
   const [preview, setPreview] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [attachError, setAttachError] = useState(null);
+  const [attachBusy, setAttachBusy] = useState(null);
   const fileInputRef = useRef(null);
   const lastConvIdRef = useRef(conversation?.id);
 
@@ -318,6 +323,7 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
     setText('');
     setAttachments([]);
     setAttachError(null);
+    setAttachBusy(null);
   };
 
   const handleFiles = async (fileList) => {
@@ -330,7 +336,23 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
         break;
       }
       if (!ATTACH_EXT_RE.test(file.name)) {
-        setAttachError(`"${file.name}" isn't a supported text format. Try .txt, .md, .csv, .json, or a code file.`);
+        setAttachError(`"${file.name}" isn't a supported format. Try .txt, .md, .csv, .json, a code file, or .pdf.`);
+        continue;
+      }
+      if (/\.pdf$/i.test(file.name)) {
+        if (file.size > MAX_PDF_BYTES) {
+          setAttachError(`"${file.name}" is too large (max ${MAX_PDF_BYTES / (1024 * 1024)} MB per PDF).`);
+          continue;
+        }
+        setAttachBusy(`Reading ${file.name}…`);
+        try {
+          const extracted = await extractPdfText(await file.arrayBuffer());
+          next.push({ id: crypto.randomUUID(), name: file.name, size: file.size, content: extracted.text, kind: 'pdf' });
+        } catch (err) {
+          setAttachError(err.message);
+        } finally {
+          setAttachBusy(null);
+        }
         continue;
       }
       if (file.size > MAX_ATTACHMENT_CHARS) {
@@ -544,7 +566,7 @@ export default function Chat({ conversation, settings, isStreaming, error, onSen
           )}
         </div>
         <div className={`composer-note${attachError ? ' error-note' : ''}`}>
-          {attachError ||
+          {attachError || attachBusy ||
           (searchOn || filesOn || calcOn || fetchOn
             ? [
                 searchOn && 'Web search enabled (Tavily) — the model decides when to search. Verify important information.',

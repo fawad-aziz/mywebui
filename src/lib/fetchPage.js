@@ -1,7 +1,9 @@
 // Fetch a web page from the browser and reduce it to readable text
 // so it can be fed back to the model as a tool result.
+import { extractPdfText } from './pdf.js';
 
 const MAX_PAGE_CHARS = 12000;
+const PDF_FETCH_CHARS = 50000;
 const DEFAULT_TIMEOUT_MS = 20000;
 
 const NAMED_ENTITIES = {
@@ -95,11 +97,27 @@ export async function fetchPageText(rawUrl, { signal, timeoutMs = DEFAULT_TIMEOU
   if (!res.ok) throw new Error(`The server returned HTTP ${res.status} for this URL.`);
 
   const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  const looksLikePdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46; // "%PDF"
+  if (contentType.includes('pdf') || looksLikePdf) {
+    const extracted = await extractPdfText(buffer);
+    const truncated = extracted.text.length > PDF_FETCH_CHARS;
+    return {
+      url: res.url || parsed.href,
+      title: `PDF document (${extracted.pages} page${extracted.pages === 1 ? '' : 's'})`,
+      text: truncated
+        ? `${extracted.text.slice(0, PDF_FETCH_CHARS)}\n… [truncated: showing ${PDF_FETCH_CHARS.toLocaleString()} of ${extracted.text.length.toLocaleString()} characters]`
+        : extracted.text,
+      totalChars: extracted.totalChars,
+      truncated,
+    };
+  }
   if (contentType && !contentType.startsWith('text/') && !contentType.includes('json') && !contentType.includes('xml')) {
-    throw new Error(`Unsupported content type "${contentType.split(';')[0].trim()}". The tool can only read text-based pages (HTML, plain text, JSON, XML).`);
+    throw new Error(`Unsupported content type "${contentType.split(';')[0].trim()}". The tool can only read text-based pages (HTML, plain text, JSON, XML) and PDFs with selectable text.`);
   }
 
-  const raw = await res.text();
+  const raw = new TextDecoder().decode(bytes);
   const isHtml = contentType.includes('html') || /<\s*(!doctype|html)/i.test(raw.slice(0, 500));
   const title = isHtml ? pageTitle(raw) : null;
   const text = isHtml ? htmlToText(raw) : decodeEntities(raw).trim();

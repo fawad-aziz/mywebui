@@ -318,6 +318,15 @@ body {
   font-size: 12.5px;
 }
 .attach-chip-size { color: var(--text-dim); font-size: 11.5px; }
+.attach-chip-kind {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(220, 60, 60, 0.25);
+  color: #ff9b9b;
+}
 .attach-chip-remove {
   background: none;
   border: none;
